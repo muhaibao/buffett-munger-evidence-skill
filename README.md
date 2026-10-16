@@ -19,12 +19,12 @@
 
 ## 版本
 
-当前版本 **v0.1.0**（预览版：从零安装只能自动采集部分资料，见“首次建库”）。版本号写在名称里：skill 名称、安装目录和仓库名都是 `buffett-munger-evidence-v0-1-0`（skill 名称不允许点号，所以用连字符）。升级版本时三者一起改名，旧仓库地址由 GitHub 自动跳转。
+当前版本 **v0.1.0**（预览版：从零安装只能自动采集部分资料，见“首次建库”）。名称和地址固定不变，版本号写在 `SKILL.md` 的 `metadata.version` 和 [Releases](https://github.com/muhaibao/buffett-munger-evidence-skill/releases) 里；本地安装的版本与最新 Release 相同即为同一版。
 
 ## 安装
 
 ```sh
-git clone https://github.com/muhaibao/buffett-munger-evidence-v0-1-0 ~/.claude/skills/buffett-munger-evidence-v0-1-0
+git clone https://github.com/muhaibao/buffett-munger-evidence-skill ~/.claude/skills/buffett-munger-evidence
 ```
 
 ## 首次建库
@@ -32,7 +32,7 @@ git clone https://github.com/muhaibao/buffett-munger-evidence-v0-1-0 ~/.claude/s
 详见 [references/local-library.md](references/local-library.md)、[references/collection.md](references/collection.md) 和 [references/retrieval.md](references/retrieval.md)。大致步骤：
 
 ```sh
-SKILL=~/.claude/skills/buffett-munger-evidence-v0-1-0
+SKILL=~/.claude/skills/buffett-munger-evidence
 DATA=~/buffett-munger-data
 LIB="$DATA/buffett-munger-library"
 PY="$DATA/runtime/bin/python"
@@ -55,14 +55,14 @@ STAGE="$DATA/staging/first"
 "$PY" "$SKILL/scripts/qa.py" --library "$LIB" build
 ```
 
-然后在 Claude Code 里提问，例如“巴菲特会怎么看一家技术变化很快的消费电子公司？”或用 `/buffett-munger-evidence-v0-1-0` 调用。
+然后在 Claude Code 里提问，例如“巴菲特会怎么看一家技术变化很快的消费电子公司？”或用 `/buffett-munger-evidence` 调用。
 
 **v0.1.0 的已知限制**：采集脚本只覆盖伯克希尔官网的股东信、西科信、年报季报，CNBC 年会文字稿和 Stripe 版《穷查理宝典》。维护者库中的访谈、Daily Journal、西科年会笔记、合伙企业信、早期年报 OCR、Worldly 档案芒格文章等来自人工暂存批次，没有采集脚本；`assets/attribution_map.json` 中几乎所有条目都对应这些批次的自定义文档 ID，新库里不会生效；主题 / 案例 Wiki 也未随仓库发布。因此新建的库，尤其芒格部分，会比维护者的库薄，回答协议中的 Wiki 检索一步暂时没有结果。从零安装的完整流程尚未在空目录中实测。
 
 ## 测试
 
 ```sh
-cd ~/.claude/skills/buffett-munger-evidence-v0-1-0/scripts
+cd ~/.claude/skills/buffett-munger-evidence/scripts
 "$PY" -m unittest discover -p 'test_*.py'
 ```
 
