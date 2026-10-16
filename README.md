@@ -1,4 +1,4 @@
-# buffett-munger-evidence-v0-1-0
+# Buffett & Munger Evidence Skill v0.1.0
 
 一个 Claude Code / Claude Agent Skill：以巴菲特和芒格的**一手资料**（股东信、年会问答、演讲、访谈）为证据，按两人的思考顺序回答投资、商业与人生问题——先判断他们会不会接这个问题，再按他们的过滤标准给出“可以 / 不行 / 太难”的结论，最后附可核查的原文出处。
 
