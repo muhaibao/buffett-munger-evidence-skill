@@ -30,6 +30,14 @@ uv pip install --python "<DATA>/runtime/bin/python" -r "$SKILL/scripts/requireme
 
 ## 首次建库
 
+一条命令跑完下面全部步骤（可续跑，结束时输出 JSON 报告；无人值守安装见仓库根目录的 `INSTALL.md`）：
+
+```sh
+"$PY" "$SKILL/scripts/bootstrap.py" --data "<DATA>"
+```
+
+手动执行时先建库：
+
 ```sh
 "$PY" "$SKILL/scripts/library.py" --library "$LIB" init
 ```

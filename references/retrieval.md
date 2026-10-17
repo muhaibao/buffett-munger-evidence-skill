@@ -44,7 +44,7 @@
 | 层级 | 召回范围 | 何时用 |
 |---|---|---|
 | `strict`（默认） | 段落发言人为该人物，含已审核的拼写变体 | 原话核验、需要逐段发言人的场合 |
-| `author` | 另加 `assets/attribution_map.json` 中已审核文档的无标签段落：芒格独立署名的 1983–1996 年西科信、1999–2010 年西科年会笔记、2011 年帕萨迪纳谈话笔记、2013–2015 年 Daily Journal 笔记、巴菲特 1970–1976 年信与 1984 年 Superinvestors 文章、两篇仅由档案归属的芒格文章 | **芒格的思想检索默认用它**：不用的话，约 3,300 段芒格材料会被漏掉 |
+| `author` | 另加 `assets/attribution_map.json` 中已审核文档的无标签段落。随仓库发布的表只列三份可按网址原样取得的芒格文档（Tilson 记录的 2005 年西科年会笔记、两篇仅由档案归属的芒格文章），用 `library.py fetch` 按表中 `url` 导入、不设自定义 `id` 时才生效。采集器建的库里两人的段落已逐段标注，此时结果与 `strict` 相同 | **芒格的思想检索默认用它**：库里有无发言人标签的芒格材料（会议笔记、档案文章）并已写进归属表时，不用它会漏掉这些段落 |
 | `unassigned` | 另加所有无标签段落（等同旧参数 `--include-unassigned`） | 找未核定作者的材料，随后人工确认作者 |
 
 每条结果的 `attribution.basis` 为 `chunk-speaker`、`document-author`、`meeting-notes-principal`、`archive-attributed`、`translation-of-own-words`（本人话语的中文译文，只在加 `--include-translations` 时出现）或 `unassigned`，并附 `caution`。写作时按基础措辞，规则见 [evidence-rules.md](evidence-rules.md)。归属表是人工审核的快照，新入库的文档不会自动加入：先运行 `attribution.py --library "$LIB" propose` 列出候选，核对署名后再写进归属表。

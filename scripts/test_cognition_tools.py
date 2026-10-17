@@ -86,6 +86,17 @@ class AttributionTests(Fixture):
         # The corpus label itself is untouched: attribution is a query-time reading, not a rewrite.
         self.assertIsNone(author["results"][0]["speaker"])
 
+    def test_shipped_attribution_map_only_names_documents_a_plain_fetch_reproduces(self):
+        # Entries keyed to ids of hand-staged or private batches can never match a user's library;
+        # library.py fetch of the recorded url (no custom id) must yield exactly the key.
+        entries = attribution.load_map()
+        self.assertTrue(entries)
+        for document_id, entry in entries.items():
+            with self.subTest(document_id=document_id):
+                self.assertEqual(library.normalize_metadata({"title": "t", "url": entry["url"]})["id"], document_id)
+                self.assertIn(entry["person"], attribution.PRINCIPALS)
+                self.assertTrue(entry["basis"] and entry["caution"])
+
     def test_semantic_matcher_applies_same_attribution_rules(self):
         rows = [{"document_id": "notes", "speaker": None, "year": 2005, "source_type": "meeting_notes", "primary_status": "secondary"},
                 {"document_id": "other", "speaker": None, "year": 2005, "source_type": "meeting_notes", "primary_status": "secondary"},

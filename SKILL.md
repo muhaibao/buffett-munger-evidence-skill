@@ -2,7 +2,7 @@
 name: buffett-munger-evidence
 description: 以巴菲特和芒格的一手资料（股东信、年会问答、演讲、访谈）为证据，按两人的思考顺序回答问题：先判断他们会不会接这个问题，再按他们的过滤标准给出“可以 / 不行 / 太难”的结论，最后附可核查的出处。用于“巴菲特/芒格会怎么看……”“如果是巴菲特会不会买……”“芒格对……怎么说”“这句话是不是巴菲特说的”“两人对……看法有何不同”等人物视角的投资、商业与人生问题，以及原话核验和维护本地资料库与主题 Wiki。完整财报尽调、估值建模、同业对比交给 value-investing-research；本 skill 只借用其核实过的事实做人物视角判断。
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # 巴菲特与芒格：有据的思考方式
@@ -54,7 +54,7 @@ metadata:
 
 ## 资料库与工具
 
-先读 [local-library.md](references/local-library.md) 确定资料库路径和 Python。默认资料库为 `<DATA>/buffett-munger-library`，Python 为 `<DATA>/runtime/bin/python`（`<DATA>` 是自选的数据根目录）。用户指定的路径或 `BUFFETT_MUNGER_CLAUDE_LIBRARY` 优先。资料库初始为空，首次使用前按该文件建库、采集并建索引。每次问答前用 `retrieve.py status` 和 `qa.py status` 确认索引可用；索引过期时会降级为关键词检索，必须如实说明，不能把关键词检索称为语义检索。普通问答不下载模型，也不重建索引。
+先读 [local-library.md](references/local-library.md) 确定资料库路径和 Python。默认资料库为 `<DATA>/buffett-munger-library`，Python 为 `<DATA>/runtime/bin/python`（`<DATA>` 是自选的数据根目录）。用户指定的路径或 `BUFFETT_MUNGER_CLAUDE_LIBRARY` 优先。资料库初始为空，首次使用前用 `bootstrap.py --data <DATA>` 一次完成建库、采集和建索引（步骤与汇报要求见仓库根目录的 [INSTALL.md](INSTALL.md)）。每次问答前用 `retrieve.py status` 和 `qa.py status` 确认索引可用；索引过期时会降级为关键词检索，必须如实说明，不能把关键词检索称为语义检索。普通问答不下载模型，也不重建索引。
 
 | 脚本 | 用途 |
 |---|---|
