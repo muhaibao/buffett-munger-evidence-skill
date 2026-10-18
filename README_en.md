@@ -1,6 +1,6 @@
 <p align="center"><a href="README.md">中文</a> | <b>English</b></p>
 
-# Buffett & Munger Evidence Skill v0.3.0
+# Buffett & Munger Evidence Skill v0.3.1
 
 A Claude Code / Claude Agent Skill that answers investment, business and life questions the way Warren Buffett and Charlie Munger reason about them, using their **primary sources** (shareholder letters, annual-meeting Q&A, speeches, interviews) as evidence. It first decides whether they would take the question at all, then applies their filters to reach "yes / no / too hard", and ends with verifiable citations to the original text.
 
@@ -8,7 +8,7 @@ A Claude Code / Claude Agent Skill that answers investment, business and life qu
 
 ## What it does
 
-- **Two-layer answers**: first the persona layer (Buffett gives a conclusion, the deciding factors and one real case; Munger gives a sharp one-line judgment, then cross-checks it with two or three mental models from different disciplines and against the best opportunity already at hand), then the evidence layer (full-sentence quotation + Chinese rendering + source link + note on applicability).
+- **Two-layer answers**: first the persona layer (Buffett gives a conclusion, the deciding factors and one real case; Munger gives a sharp one-line judgment, then cross-checks it with as many mental models from different disciplines as the question needs and, for investment questions, against the best opportunity already at hand), then the evidence layer (full-sentence quotation + Chinese rendering + source link + note on applicability).
 - **Evidence discipline**: quotes only complete sentences that were actually opened and checked; distinguishes original writing, publisher transcripts, third-party notes, biographies and translations; separates the period a text covers from its publication date; never puts words in Munger's mouth about events after his death (2023-11-28).
 - **Local hybrid retrieval**: SQLite FTS5/BM25 + local ONNX multilingual E5 embeddings + cross-encoder reranking, all offline; source text is never sent to an external service.
 - **Tools**: annual-meeting Q&A unit search (`qa.py`), source-backed topic/case Wiki (`wiki.py`), full-sentence quote extraction (`quote.py`), speaker attribution review (`attribution.py`), blind evaluation (`evaluate.py`), and collectors for public sources such as the Berkshire Hathaway website and CNBC's Warren Buffett Archive.
@@ -19,7 +19,7 @@ This repository ships **no source texts, ebooks, videos or indexes**. The librar
 
 ## Version
 
-Current version **v0.3.0** (preview: a fresh install collects only part of the material automatically; see "Building the library"). The name and URL never change; the version lives in `metadata.version` in `SKILL.md` and in [Releases](https://github.com/muhaibao/buffett-munger-evidence-skill/releases). A local install whose version equals the latest Release is that release.
+Current version **v0.3.1** (preview: a fresh install collects only part of the material automatically; see "Building the library"). The name and URL never change; the version lives in `metadata.version` in `SKILL.md` and in [Releases](https://github.com/muhaibao/buffett-munger-evidence-skill/releases). A local install whose version equals the latest Release is that release.
 
 ## Install
 
