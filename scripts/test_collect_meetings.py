@@ -43,6 +43,15 @@ class MeetingTests(unittest.TestCase):
         self.assertEqual(segments[1]["speaker"], "GREG ABEL")
         self.assertEqual(len(synthetic), 1)
 
+    def test_double_encoding_is_repaired_before_spaces_are_collapsed(self):
+        # CNBC serves "à" as "Ã" + no-break space; once whitespace is collapsed the second byte is lost and
+        # "vis-Ã -vis" can no longer be repaired, so the repair has to come first.
+        raw = ('<div class="Chapter-chapter"><h3 class="Chapter-chapterTitle">1. Moodyâ\x80\x99s moat</h3>'
+               '<p>WARREN BUFFETT: The dollar vis-Ã\xa0-vis the yen â\x80\x94 at the factory,Â\xa0Jerzees.</p></div>').encode("utf-8")
+        segments, chapters, _ = transcript(parse(raw), 1, 1)
+        self.assertEqual(segments[0]["text"], "WARREN BUFFETT: The dollar vis-à-vis the yen — at the factory, Jerzees.")
+        self.assertEqual(chapters, ["1. Moody’s moat"])
+
     def test_missing_transcript_and_short_clip_fail(self):
         for raw in [b'<html><video></video></html>', b'<div class="Chapter-chapter"><h3 class="Chapter-chapterTitle">Short clip</h3><p>WARREN BUFFETT: Hello.</p></div>']:
             with self.subTest(raw=raw), self.assertRaises(ValueError):

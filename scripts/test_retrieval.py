@@ -170,6 +170,33 @@ class RetrievalTests(unittest.TestCase):
         self.assertFalse(result["reranked"])
         self.assertTrue(any("Reranker unavailable" in w for w in result["warnings"]))
 
+    def report_and_letter(self):
+        letter_text = "If you aren't willing to own a stock for ten years, don't even think about owning it for ten minutes."
+        self.ingest(letter_text + "\n\nOther sections of the report follow, including the owner's manual we print every year.",
+                    id="report", title="1996 Annual Report", source_type="annual_report", speaker=None)
+        letter = self.ingest(letter_text, id="letter", title="1996 Letter", source_type="shareholder_letter",
+                             parent_document_id="report", same_source_as_parent=False)
+        manual = self.ingest("Our owner's manual asks you to own a stock for ten years and to think like an owner of the business.",
+                             id="manual", title="Manual reprint", source_type="annual_report", speaker=None)
+        reprint = self.writer.db.execute("SELECT id FROM chunks WHERE document_id='report' AND ordinal=0").fetchone()[0]
+        return letter, reprint, manual
+
+    def test_letter_printed_in_annual_report_is_one_source_returned_as_the_standalone_letter(self):
+        # One sentence found in the report and in the standalone letter is one source, not two corroborations.
+        letter, reprint, manual = self.report_and_letter()
+        result = self.run_search("own a stock for ten years", exact=True)
+        by_id = {r["chunk_id"]: r for r in result["results"]}
+        self.assertEqual(set(by_id), {letter, manual})          # report text outside the letter is still returned
+        self.assertEqual(by_id[letter]["also_printed_in"], {"document_id": "report", "chunk_id": reprint})
+        self.assertEqual(by_id[letter]["source_group"], "report")  # child and parent share the root's key
+
+    def test_reprint_is_not_swapped_for_a_letter_the_query_excludes(self):
+        # A held-out letter must not leak back in through its annual-report copy.
+        letter, reprint, _ = self.report_and_letter()
+        result = self.run_search("own a stock for ten years", exact=True, exclude_documents=["letter"])
+        self.assertIn(reprint, [r["chunk_id"] for r in result["results"]])
+        self.assertNotIn(letter, [r["chunk_id"] for r in result["results"]])
+
     def make_wiki(self):
         key = self.ingest("A durable advantage.")
         doc = self.writer.db.execute("SELECT * FROM documents").fetchone()

@@ -1,6 +1,6 @@
 <p align="center"><b>中文</b> | <a href="README_en.md">English</a></p>
 
-# Buffett & Munger Evidence Skill v0.3.1
+# Buffett & Munger Evidence Skill v0.3.2
 
 一个 Claude Code / Claude Agent Skill：以巴菲特和芒格的**一手资料**（股东信、年会问答、演讲、访谈）为证据，按两人的思考顺序回答投资、商业与人生问题——先判断他们会不会接这个问题，再按他们的过滤标准给出“可以 / 不行 / 太难”的结论，最后附可核查的原文出处。
 
@@ -13,7 +13,7 @@
 - **两层回答**：先给人物回答（巴菲特讲结论、决定因素和一个真实案例；芒格先一句尖锐判断，再按问题需要用多个跨学科思维模型交叉检验，投资问题还会和手里最好的机会比），再给依据层（完整原句引文 + 中文译意 + 出处链接 + 适用性说明）。
 - **证据纪律**：只引用实际打开并核对过的完整句子；区分本人原作、发布者文字稿、第三方笔记、传记与译本；区分材料年份与发表日期；芒格去世（2023-11-28）后的事件不替他表态。
 - **本地混合检索**：SQLite FTS5/BM25 + 本地 ONNX 多语言 E5 语义检索 + cross-encoder 重排，全部离线运行，原文不发送给外部服务。
-- **配套工具**：年会问答单元检索（`qa.py`）、有出处的主题/案例 Wiki（`wiki.py`）、完整句子取句（`quote.py`）、发言人归属审核（`attribution.py`）、盲测评估（`evaluate.py`），以及从伯克希尔官网、CNBC 巴菲特档案等公开来源采集资料的脚本。
+- **配套工具**：年会问答单元检索（`qa.py`）、有出处的主题/案例 Wiki（`wiki.py`）、完整句子取句（`quote.py`）、成稿引文逐字核对（`verify_quotes.py`）、发言人归属审核（`attribution.py`）、盲测评估（`evaluate.py`），以及从伯克希尔官网、CNBC 巴菲特档案等公开来源采集资料的脚本。
 
 ## 不包含什么
 
@@ -21,7 +21,7 @@
 
 ## 版本
 
-当前版本 **v0.3.1**（预览版：从零安装只能自动采集部分资料，见“首次建库”）。名称和地址固定不变，版本号写在 `SKILL.md` 的 `metadata.version` 和 [Releases](https://github.com/muhaibao/buffett-munger-evidence-skill/releases) 里；本地安装的版本与最新 Release 相同即为同一版。
+当前版本 **v0.3.2**（预览版：从零安装只能自动采集部分资料，见“首次建库”）。名称和地址固定不变，版本号写在 `SKILL.md` 的 `metadata.version` 和 [Releases](https://github.com/muhaibao/buffett-munger-evidence-skill/releases) 里；本地安装的版本与最新 Release 相同即为同一版。
 
 ## 安装
 

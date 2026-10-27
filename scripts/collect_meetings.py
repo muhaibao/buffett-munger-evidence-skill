@@ -16,7 +16,7 @@ import re
 import sys
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from library import clean, decode, digest, download, now, speaker_name
+from library import clean, decode, digest, download, now, repair_text, speaker_name
 
 INDEX = "https://buffett.cnbc.com/annual-meetings/"
 VOID = set("area base br col embed hr img input link meta param source track wbr".split())
@@ -128,13 +128,15 @@ def transcript(root, minimum_paragraphs=20, minimum_characters=4000):
         titles = [node for node in chapter.walk() if node.has_class("Chapter-chapterTitle")]
         if len(titles) != 1:
             raise ValueError("Transcript chapter has an ambiguous or missing title")
-        section, speaker = clean(titles[0].text()), None
+        # CNBC pages carry double-encoded UTF-8; repair before whitespace is collapsed, because a sequence
+        # ending in a no-break space ("Ã\xa0" for "à") can no longer be repaired once that byte becomes " ".
+        section, speaker = clean(repair_text(titles[0].text())), None
         chapter_titles.append(section)
         synthetic = bool(re.search(r"\bAI\b|AI.generated|synthetic", section, re.I) and re.search(r"Warren|Buffett|voice", section, re.I))
         if synthetic:
             synthetic_sections.append(section)
         for paragraph in (node for node in chapter.walk() if node.tag == "p"):
-            text = clean(paragraph.text())
+            text = clean(repair_text(paragraph.text()))
             if not text:
                 continue
             label = re.match(r"^([A-Z][A-Z0-9 .,’'()\[\]/&-]{1,75}):\s*", text)

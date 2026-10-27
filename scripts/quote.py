@@ -71,27 +71,32 @@ def _joiner(left, right):
     return "" if re.match(r"[　-鿿＀-￯]", left[-1]) and re.match(r"[　-鿿＀-￯]", right[0]) else " "
 
 
-def quote(corpus, chunk_id, match, before=0, after=0, reach=2):
-    row = corpus.db.execute("SELECT * FROM chunks WHERE id=?", (chunk_id,)).fetchone()
-    if row is None:
-        raise ValueError("Unknown chunk id: " + chunk_id)
+def joined_passage(corpus, row, reach=2):
+    """The chunk's text joined with neighbours by the same speaker, labels removed: (text, [(chunk_id, start, end)])."""
     rows = corpus.db.execute("SELECT * FROM chunks WHERE document_id=? AND ordinal BETWEEN ? AND ? ORDER BY ordinal",
                              (row["document_id"], row["ordinal"] - reach, row["ordinal"] + reach)).fetchall()
     # A sentence can continue into a neighbouring chunk only if the same speaker is talking.
-    target = next(i for i, r in enumerate(rows) if r["id"] == chunk_id)
+    target = next(i for i, r in enumerate(rows) if r["id"] == row["id"])
     lo = target
     while lo > 0 and rows[lo - 1]["speaker"] == row["speaker"] and not label_end(rows[lo]["text"], rows[lo]["speaker"]):
         lo -= 1
     hi = target
     while hi + 1 < len(rows) and rows[hi + 1]["speaker"] == row["speaker"] and not label_end(rows[hi + 1]["text"], rows[hi + 1]["speaker"]):
         hi += 1
-    pieces, offsets, text = [], [], ""
+    offsets, text = [], ""
     for r in rows[lo:hi + 1]:
         part = _normalize(r["text"][label_end(r["text"], r["speaker"]):])
         sep = _joiner(text, part)
         offsets.append((r["id"], len(text) + len(sep), len(text) + len(sep) + len(part)))
         text += sep + part
-        pieces.append(r)
+    return text, offsets
+
+
+def quote(corpus, chunk_id, match, before=0, after=0, reach=2):
+    row = corpus.db.execute("SELECT * FROM chunks WHERE id=?", (chunk_id,)).fetchone()
+    if row is None:
+        raise ValueError("Unknown chunk id: " + chunk_id)
+    text, offsets = joined_passage(corpus, row, reach)
     t_start, t_end = next((s, e) for cid, s, e in offsets if cid == chunk_id)
     needle = _normalize(match).casefold()
     found = text.casefold().find(needle, t_start)

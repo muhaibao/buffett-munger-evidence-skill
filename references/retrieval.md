@@ -9,7 +9,7 @@
 - 融合：对两路候选及显式补充查询使用 RRF；同一候选保留各路排名。补充查询不是新增的独立证据，也不能无限增加同方向查询以压过反证。
 - 重排：本机多语言 mMARCO MiniLM cross-encoder，读取目标段及相邻一段的原始文本。结果分数只代表相关性，不是正确概率或人物相似度。
 - 回读：返回目标段和指定相邻窗口，保留每段发言人、定位和证据资格；相邻段共用目标段的文档元数据，避免重复大段采集记录。窗口可能跨问题，操作者必须检查原问题、回答尾部及条件句。
-- 去重：同一来源组的相同文本合并；结果附来源组提示及每文档数量限制。转载与拆信可能仍需人工去重，不能把候选数当作独立来源数。
+- 去重：来源组 `source_group` 是根文档 ID（沿 `parent_document_id` 上溯，股东信和刊载它的年报同组）；同组或同一抓取页里相同的文本只留一条。年报中重印独立股东信的段落一律换成股东信自己的段落，并用 `also_printed_in` 注明年报里的位置；年报中信以外的章节照常返回。被 `--exclude-document` 排除或不合过滤条件的股东信不会换入。其他转载仍可能需要人工去重，不能把候选数当作独立来源数。
 - 原文索引与 Wiki 搜索分开返回。Wiki 属于归纳导航，不能用它取代原话核验。
 - 人物归属在查询时计算，不改写库里的发言人标签：人物过滤会自动包含已审核的拼写变体（如 CNBC 稿中的 `WARREN BUFEFTT`、`CHALIE MUNGER`），每条结果附 `attribution` 说明归属基础（见下文“归属层级”）。
 - 留出：`--exclude-document`（可重复）把指定文档排除在关键词和语义两路之外，用于盲测。
@@ -57,6 +57,16 @@
 "$PY" "$SKILL/scripts/quote.py" --library "$LIB" '<chunk_id>' --match 'size of that circle'
 "$PY" "$SKILL/scripts/quote.py" --library "$LIB" '<chunk_id>' --match 'too hard pile' --before 1 --after 1
 ```
+
+## 核对成稿里的引文
+
+回答或研究底稿写完后，用 `verify_quotes.py` 机械核对所有英文引号引文（代码块、中文引号里的中文、少于 4 个英文词的术语不查）：
+
+```sh
+"$PY" "$SKILL/scripts/verify_quotes.py" --library "$LIB" answer.md "$RESEARCH/<底稿目录>" --problems-only
+```
+
+规范化空白、弯引号和大小写后，引文必须逐字出现在一个段落或同一发言人的相邻段落里（即 `quote.py` 返回的文本）。状态：`found`；`found_non_verbatim_source`（只在第三方、粗转录、OCR 或译本里，引文旁要注明非逐字核对）；`chapter_heading`（CNBC 章节标题等编辑标题，不是本人的话）；问题项 `not_found`、`spliced`（省略号拼接）、`truncated`（去掉省略号才找到）。有问题项时退出码为 1。找到只说明这串字在库里，不说明归属和语境正确；中文译意不在核对范围内。
 
 ## 一次回答的检索计划
 

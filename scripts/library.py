@@ -175,6 +175,44 @@ def clean(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
+# Some publisher pages (the CNBC meeting transcripts) serve UTF-8 that was once decoded as Latin-1/cp1252
+# and encoded again, so "—" arrives as "â\x80\x94". A run of such characters is mapped back to bytes and
+# replaced only when those bytes are valid UTF-8 that decodes to Latin letters, punctuation or symbols;
+# anything else (OCR noise, the "B•Ø•C" brand) is left untouched.
+_CP1252_HIGH = {bytes([b]).decode("cp1252"): b for b in range(0x80, 0xA0) if b not in (0x81, 0x8D, 0x8F, 0x90, 0x9D)}
+_CONTINUATION = "[\x80-\xbf" + re.escape("".join(_CP1252_HIGH)) + "]"
+MOJIBAKE = re.compile("(?:[\xc2-\xdf]" + _CONTINUATION + "|[\xe0-\xef]" + _CONTINUATION + "{2}|[\xf0-\xf4]"
+                      + _CONTINUATION + "{3})+")
+_REPAIRABLE = ((0xA0, 0x24F), (0x1E00, 0x1EFF), (0x2000, 0x20CF), (0x2100, 0x218F))
+# PDFs read with the wrong code page leave cp1252 quotes and dashes as C1 control characters ("Berkshire\x92s").
+CP1252_C1 = {ord(c1): c1.encode("latin-1").decode("cp1252") for c1 in "\x85\x91\x92\x93\x94\x95\x96\x97"}
+C1_CONTROL = re.compile("[\x80-\x9f]")
+
+
+def _undo_mojibake(match):
+    run = match.group(0)
+    try:
+        fixed = bytes(_CP1252_HIGH.get(ch, ord(ch)) for ch in run).decode("utf-8")
+    except UnicodeDecodeError:
+        return run
+    return fixed if all(any(lo <= ord(ch) <= hi for lo, hi in _REPAIRABLE) for ch in fixed) else run
+
+
+def repair_text(text, cp1252_c1=False):
+    """Undo deterministic encoding damage. cp1252_c1 also maps C1 controls to cp1252 punctuation."""
+    text = MOJIBAKE.sub(_undo_mojibake, text)
+    return text.translate(CP1252_C1) if cp1252_c1 else text
+
+
+def c1_is_cp1252_punctuation(texts):
+    """True when every C1 control left in a document is a cp1252 quote, dash, bullet or ellipsis.
+
+    Other C1 controls mean a PDF font with its own glyph table (ligatures, bullets), which cp1252 would misread,
+    so the document is then left as extracted."""
+    found = {ch for text in texts for ch in C1_CONTROL.findall(repair_text(text))}
+    return bool(found) and found <= {chr(code) for code in CP1252_C1}
+
+
 def split_text(text, limit=1800):
     """Keep paragraphs, splitting unusually long paragraphs at sentence boundaries."""
     for paragraph in re.split(r"\n\s*\n", text):
@@ -386,6 +424,8 @@ class Library:
                 raise ValueError("Source SHA256 differs from verified speaker page ranges; review attribution before reindexing")
             segments = extract(path, raw)
             rows = []
+            cp1252_c1 = c1_is_cp1252_punctuation(s["text"] for s in segments
+                                                 if isinstance(s, dict) and isinstance(s.get("text"), str))
             fallback = speaker_name(meta["speaker"]) if meta["source_type"] in SPEECH_TYPES else None
             for segment in segments:
                 if not isinstance(segment, dict) or not isinstance(segment.get("text"), str):
@@ -405,8 +445,11 @@ class Library:
                 for piece in split_text(value):
                     ordinal = len(rows)
                     chunk_locator = locator or {"paragraph": ordinal + 1}
+                    # The id hashes the text as extracted, so an encoding repair never renumbers cited chunks.
                     chunk_id = meta["id"] + ":" + digest(json.dumps([ordinal, piece, speaker, chunk_locator], sort_keys=True))[:16]
-                    rows.append((chunk_id, meta["id"], ordinal, piece, speaker, json.dumps(chunk_locator)))
+                    shown_locator = {k: repair_text(v) if isinstance(v, str) else v for k, v in chunk_locator.items()}
+                    rows.append((chunk_id, meta["id"], ordinal, clean(repair_text(piece, cp1252_c1)), speaker,
+                                 json.dumps(shown_locator)))
             if not rows or sum(len(row[3]) for row in rows) < 8:
                 raise ValueError("No meaningful text extracted; source was not indexed")
             relative = "raw/" + raw_hash + path.suffix.lower()

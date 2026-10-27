@@ -342,9 +342,68 @@ def semantic_search(status, model, query, limit=50, **filters):
     return [(rows[i]["id"], float(scores[i])) for i in selected[:limit]]
 
 
-def evidence_group(evidence):
-    meta = evidence["provenance"]
-    return meta.get("parent_document_id") or meta.get("source_html_sha256") or evidence["raw_sha256"]
+def root_document(corpus, document_id):
+    """Follow parent_document_id to the publication that holds the text (a letter points to its annual report)."""
+    seen = set()
+    while document_id not in seen:
+        seen.add(document_id)
+        row = corpus.db.execute("SELECT metadata FROM documents WHERE id=?", (document_id,)).fetchone()
+        parent = json.loads(row["metadata"]).get("parent_document_id") if row else None
+        if not parent:
+            break
+        document_id = parent
+    return document_id
+
+
+def evidence_group(corpus, evidence):
+    # Parent and child must share one key, or one passage printed in both is counted as two sources.
+    return root_document(corpus, evidence["document_id"])
+
+
+def shingles(text, size=5):
+    words = re.findall(r"[a-z0-9]+", text.lower())
+    return {tuple(words[i:i + size]) for i in range(len(words) - size + 1)}
+
+
+REPRINT_COVERAGE = 0.6   # annual-report passages are ~all letter text (>=0.9) or ~none (<0.1); 0.6 splits them
+
+
+class StandaloneLetters:
+    """An annual report reprints the year's shareholder letter, which is also kept as its own document.
+
+    A report passage that is mostly letter text is replaced by the letter's own passage, so the reader gets the
+    standalone letter and the same words are never returned twice. Report sections outside the letter stay."""
+
+    def __init__(self, corpus, matcher, needle=None):
+        self.corpus, self.matcher, self.needle, self.cache = corpus, matcher, needle, {}
+
+    def _letters(self, root):
+        if root not in self.cache:
+            rows = self.corpus.db.execute(
+                "SELECT c.*,d.year,d.source_type,d.primary_status FROM chunks c JOIN documents d ON d.id=c.document_id "
+                "WHERE d.source_type='shareholder_letter' AND json_extract(d.metadata,'$.parent_document_id')=? "
+                "ORDER BY c.document_id,c.ordinal", (root,)).fetchall()
+            pairs = [(row, shingles(row["text"])) for row in rows]
+            self.cache[root] = (pairs, set().union(*(s for _, s in pairs)),
+                                {" ".join(row["text"].split()).lower(): row for row in rows})
+        return self.cache[root]
+
+    def replacement(self, item):
+        """The standalone letter passage that `item` reprints, or None."""
+        if item["provenance"].get("source_type") == "shareholder_letter":
+            return None
+        pairs, union, by_text = self._letters(item["source_group"])
+        if not pairs:
+            return None
+        own = shingles(item["text"])
+        row = by_text.get(" ".join(item["text"].split()).lower())
+        if row is None and own and len(own & union) >= REPRINT_COVERAGE * len(own):
+            row = max(pairs, key=lambda pair: (len(own & pair[1]), -pair[0]["ordinal"]))[0]
+        if row is None or not self.matcher(row):
+            return None
+        if self.needle and self.needle not in " ".join(row["text"].split()).casefold():
+            return None
+        return row
 
 
 def context_passages(corpus, key, window):
@@ -394,7 +453,7 @@ def search(corpus, query, index_dir, models_dir, mode="auto", lexical_queries=No
         row = corpus.db.execute("SELECT * FROM chunks WHERE id=?", (key,)).fetchone()
         item = corpus.evidence(row, full=True)
         item["retrieval"] = {"rrf_score": scores[key], "routes": routes[key]}
-        item["source_group"] = evidence_group(item)
+        item["source_group"] = evidence_group(corpus, item)
         evidence.append(item)
     reranked = False
     if rerank and evidence:
@@ -415,16 +474,29 @@ def search(corpus, query, index_dir, models_dir, mode="auto", lexical_queries=No
     speaker = filters.get("speaker")
     level = attribution_level(filters.get("include_unassigned", False), filters.get("attribution_mode"))
     doc_map = attribution.author_documents(speaker) if speaker else {}
+    literal = query_terms(query, exact=True)
+    needle = " ".join(literal[0].split()).casefold() if exact and literal else None
+    standalone = StandaloneLetters(corpus, make_matcher(**filters), needle)
     # Near-identical copies are represented once; grouping is not a count of independent sources.
-    chosen, seen, document_counts = [], set(), defaultdict(int)
+    chosen, seen, document_counts = [], {}, defaultdict(int)
     for item in evidence:
-        normalized = " ".join(item["text"].split()).lower()
-        duplicate = (item["source_group"], hashlib.sha256(normalized.encode()).hexdigest())
-        if duplicate in seen:
+        letter = standalone.replacement(item)
+        if letter is not None:
+            reprint = {"document_id": item["document_id"], "chunk_id": item["chunk_id"]}
+            item = dict(corpus.evidence(letter, full=True), retrieval=item["retrieval"],
+                        source_group=item["source_group"], also_printed_in=reprint)
+        normalized = hashlib.sha256(" ".join(item["text"].split()).lower().encode()).hexdigest()
+        # Versions captured from one page (e.g. a talk and its revised edition) also count once per passage.
+        capture = item["provenance"].get("source_html_sha256") or item["raw_sha256"]
+        duplicates = {(item["source_group"], normalized), (capture, normalized)}
+        earlier = next((seen[key] for key in duplicates if key in seen), None)
+        if earlier is not None:
+            if "also_printed_in" in item:
+                earlier.setdefault("also_printed_in", item["also_printed_in"])
             continue
         if max_per_document and document_counts[item["document_id"]] >= max_per_document:
             continue
-        seen.add(duplicate)
+        seen.update(dict.fromkeys(duplicates, item))
         document_counts[item["document_id"]] += 1
         item["context"] = context_passages(corpus, item["chunk_id"], context) if context else []
         item["attribution"] = attribution.basis(item["speaker"], item["document_id"], speaker, doc_map)
@@ -437,7 +509,8 @@ def search(corpus, query, index_dir, models_dir, mode="auto", lexical_queries=No
             "rerank_query": (rerank_query or query) if reranked else None,
             "reranked": reranked, "warnings": warnings, "candidate_counts": {k: len(v) for k, v in rankings.items()},
             "results": chosen,
-            "note": "Ranks measure relevance, not truth. Context may cross speakers or questions; inspect boundaries. Wiki is synthesis, not independent evidence."}
+            "note": "Ranks measure relevance, not truth. Context may cross speakers or questions; inspect boundaries. Wiki is synthesis, not independent evidence. "
+                    "An annual-report passage that reprints the standalone letter is returned as the letter (also_printed_in names the report copy)."}
 
 
 def main():

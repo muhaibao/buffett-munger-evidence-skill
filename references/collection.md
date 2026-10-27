@@ -4,7 +4,7 @@
 
 ## 运行环境与数据
 
-Python 3.9+，SQLite 需要 FTS5。基础 HTML、文本、JSON、VTT、SRT 导入使用标准库；PDF 需要 `pypdf` 或 `pdftotext`；`collect_speeches.py` 另外需要 `lxml`。网站即使忽略 `Accept-Encoding: identity` 返回 Brotli 压缩，也可用 Python `brotli` 或 Node 的内置 zlib 解码；无法解码就失败，不能把乱码入库。发布者原文自身的编码错误应保留质量说明，不凭猜测修正文句。
+Python 3.9+，SQLite 需要 FTS5。基础 HTML、文本、JSON、VTT、SRT 导入使用标准库；PDF 需要 `pypdf` 或 `pdftotext`；`collect_speeches.py` 另外需要 `lxml`。网站即使忽略 `Accept-Encoding: identity` 返回 Brotli 压缩，也可用 Python `brotli` 或 Node 的内置 zlib 解码；无法解码就失败，不能把乱码入库。发布者原文自身的编码错误只做确定性修复，不凭猜测修正文句：`library.py ingest` 自动把双重编码的 UTF-8（如 CNBC 年会稿把“—”发成 `â€”`）映射回字节，只有能完整解码为拉丁字母、标点或符号时才替换；PDF 里残留的 C1 控制字符，只有整份文档的 C1 全是 cp1252 引号、破折号、项目符号时才按 cp1252 还原。字体自带字形表造成的连字（如西科信的 `\x84gures`）不在此列，保留原样并写质量说明。`collect_meetings.py` 在合并空白之前修复，否则以不换行空格结尾的序列（`Ã`+NBSP 即“à”）无法还原。
 
 以下示例的 `PY`、`SKILL`、`LIB` 请替换为实际路径，参考 `local-library.md`。`STAGE` 指暂存目录 `<DATA>/staging/<批次名>`；这些名称是普通占位符，不是自动配置。
 
@@ -23,7 +23,7 @@ Python 3.9+，SQLite 需要 FTS5。基础 HTML、文本、JSON、VTT、SRT 导�
 
 上面的 `collect.py` 从实际索引链接发现材料，并**直接写入资料库**；默认跳过已索引 URL，`--refresh` 主动重新获取，`--from-year`、`--to-year`、`--limit` 限制范围。其 `reports` 类别仅用于年报；需要年报与季报批量暂存时使用下面的 `collect_financials.py`。巴菲特信件自动入口暂只纳入至 2024 财年，未来新信要先阅读署名后手动导入，不因网站更新自动改变作者。不要让这个直接写入采集器与其他合并／导入操作并发写同一库。
 
-原文件在 `raw/`，SQLite 保存在库目录中，发现的索引及清单在 `discovery/`。索引中保留 SHA256 和访问时间。相同文档重新导入会更新当前检索片段并保留已有原文件；chunk ID 可能随正文和提取方式变化，因此引用时同时记录 URL、原文 SHA 和定位。它不是完整的多版本时态数据库。
+原文件在 `raw/`，SQLite 保存在库目录中，发现的索引及清单在 `discovery/`。索引中保留 SHA256 和访问时间。相同文档重新导入会更新当前检索片段并保留已有原文件；chunk ID 按编码修复之前的抽取原文计算，所以修复不会改号，但抽取方式变化（例如从 HTML 重新暂存 CNBC 年会稿）仍会改号，因此引用时同时记录 URL、原文 SHA 和定位。它不是完整的多版本时态数据库。
 
 ### 批量扩展：先暂存，再由单一写入进程合并
 

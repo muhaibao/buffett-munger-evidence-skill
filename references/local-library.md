@@ -13,6 +13,8 @@
 
 路径优先级：用户在对话中指定的路径 → 环境变量 `BUFFETT_MUNGER_CLAUDE_LIBRARY`（指向资料库目录）→ 上表默认路径。始终向 CLI 显式传入 `--library`，避免在不同工作目录意外建立多个库。迁移到其他机器时修改本文件或设置环境变量；不要删除原库。
 
+研究底稿目录（`RESEARCH`）默认是 `<DATA>/research/`。优先级同上：用户指定的路径 → 环境变量 `BUFFETT_MUNGER_CLAUDE_RESEARCH` → 默认路径。目录不存在时跳过回答协议第 0 步。
+
 ## 运行环境
 
 用 uv 建立独立虚拟环境，不依赖、也不修改系统 Python：

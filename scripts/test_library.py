@@ -234,6 +234,43 @@ class CorpusTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             library.canonical_url("https://user:password@example.test/private")
 
+    def segments_file(self, segments):
+        source = self.root / "segments.json"
+        source.write_text(json.dumps({"segments": segments}), encoding="utf-8")
+        return source
+
+    def test_double_encoded_text_is_stored_clean_under_the_id_of_the_extracted_text(self):
+        # Quotes are copied from stored text, so "â\x80\x94" would reach answers; but wiki pages and research
+        # notes cite chunk ids, so repairing the text must never renumber the chunk.
+        damaged = "We are â\x80\x94 you saw one of our ads â\x80\x94 closing more. Itâ\x80\x99s up."
+        locator = {"section": "4. Helzbergâ\x80\x99s Diamonds"}
+        source = self.segments_file([{"text": damaged, "speaker": "Buffett", **locator}])
+        self.corpus.ingest(self.meta, source)
+        row = self.corpus.db.execute("SELECT * FROM chunks").fetchone()
+        self.assertEqual(row["text"], "We are — you saw one of our ads — closing more. It’s up.")
+        self.assertEqual(json.loads(row["locator"])["section"], "4. Helzberg’s Diamonds")
+        legacy = hashlib.sha256(json.dumps([0, damaged, "Warren Buffett", locator], sort_keys=True).encode()).hexdigest()[:16]
+        self.assertEqual(row["id"], row["document_id"] + ":" + legacy)
+        self.assertEqual(self.corpus.search("closing")["results"][0]["chunk_id"], row["id"])  # full text uses clean text
+
+    def test_text_that_only_resembles_double_encoding_is_left_alone(self):
+        # Brand names and OCR noise also "round-trip" to valid UTF-8 (Arabic, combining marks); changing them
+        # would put characters in the source that were never there.
+        for original in ["Tony Lama®, BØRN®, B•Ø•C®, Carolina®", "7,422,7îšîÍš 10,277,178", "Söfft café naïve"]:
+            with self.subTest(original=original):
+                self.assertEqual(library.repair_text(original), original)
+
+    def test_c1_controls_become_cp1252_punctuation_only_when_all_are_punctuation(self):
+        # A PDF read with the wrong code page shows "Berkshire\x92s"; a PDF whose font maps "fi" to \x84 must
+        # not be "repaired" into „gures.
+        self.corpus.ingest(self.meta, self.segments_file([{"text": "Berkshire\x92s \x93relative\x94 results \x97 fine."}]))
+        self.assertEqual(self.corpus.db.execute("SELECT text FROM chunks").fetchone()[0],
+                         "Berkshire’s “relative” results — fine.")
+        self.corpus.ingest(dict(self.meta, url="https://example.test/wesco"),
+                           self.segments_file([{"text": "All \x84gures di\x81er from Berkshire\x92s."}]))
+        self.assertIn("All \x84gures di\x81er from Berkshire\x92s.",
+                      [r[0] for r in self.corpus.db.execute("SELECT text FROM chunks")])
+
     def test_cli_works_and_errors_are_nonzero(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
